@@ -24,9 +24,9 @@ Arle is a Discord bot that can play music from YouTube. It supports various comm
 ```bash
 pip install discord.py yt-dlp
 ```
-3. Set the `Arle` environment variable to your Discord bot token.
-4. Run `bot.py`.
-
+3. Download and install [FFmpeg](https://ffmpeg.org/download.html).
+4. Set 'Arle' environment variable to your Discord Bot Token.
+5. Run 'bot.py'
 ## Note
 
 This bot requires the `ffmpeg` executable to be installed and its path to be specified in the `FFmpegPCMAudio` call in the `play` command.
