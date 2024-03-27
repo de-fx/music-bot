@@ -30,6 +30,7 @@ pip install discord.py yt-dlp
 setx PATH "%PATH%;C:\path\to\ffmpeg\bin"
 ```
 Replace `C:\path\to\ffmpeg\bin` with the actual path to the `bin` directory in your FFmpeg installation.
+
 5. Set 'Arle' environment variable to your Discord Bot Token.
 ```bash
 setx DISCORD_TOKEN "your-bot-token"
