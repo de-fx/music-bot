@@ -4,25 +4,13 @@ import discord
 from discord.ext import commands
 from discord import FFmpegPCMAudio
 from yt_dlp import YoutubeDL
-import atexit
 
-#Cleaup the files in the Downloads folder
-def cleanup():
-    download_folder = './Downloads'
-    for filename in os.listdir(download_folder):
-        file_path = os.path.join(download_folder, filename)
-        try:
-            if os.path.isfile(file_path):
-                os.unlink(file_path)
-        except Exception as e:
-            print(f'Failed to delete {file_path}. Reason: {e}')
 
 class Arle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.current_filename = None
-        atexit.register(cleanup)
-
+        
     async def download_audio(self, search):
         ydl_opts = {
             'format': 'bestaudio/best',
