@@ -25,18 +25,6 @@ Arle is a Discord bot that can play music from YouTube. It supports various comm
 pip install discord.py yt-dlp
 ```
 3. Download and install [FFmpeg](https://ffmpeg.org/download.html).
-
-To add instructions for setting the path for FFmpeg, you can add a new step in the Setup section of your README.md file. Here's how you can do it:
-
-```markdown
-## Setup
-
-1. Clone this repository.
-2. Install the required Python packages: 
-```bash
-pip install discord.py yt-dlp
-```
-3. Download and install [FFmpeg](https://ffmpeg.org/download.html).
 4. Add FFmpeg to your system's PATH:
 ```bash
 setx PATH "%PATH%;C:\path\to\ffmpeg\bin"
