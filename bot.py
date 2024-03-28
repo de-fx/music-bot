@@ -4,9 +4,12 @@ import discord
 from discord.ext import commands
 from discord import FFmpegPCMAudio
 from yt_dlp import YoutubeDL
+import requests
 
 
 class Arle(commands.Cog):
+
+
     def __init__(self, bot):
         self.bot = bot
         self.current_filename = None
@@ -33,6 +36,13 @@ class Arle(commands.Cog):
         except Exception as e:
             raise e
 
+
+    def get_lyrics(self, artist, title):
+        response = f'https://api.lyrics.ovh/v1/{artist}/{title}'
+        data = requests.get(response).json()
+        return data['lyrics']
+
+
     @commands.command(name='play', help='Plays music from YouTube')
     async def play(self, ctx, *, search: str):
         #Store the search query for replay command
@@ -57,7 +67,8 @@ class Arle(commands.Cog):
                 print(f'Error playing audio file: {error}')
                 return
             os.remove(filename)
-
+        self.current_filename = None
+        
         try:
             ctx.voice_client.play(FFmpegPCMAudio(executable='C:/ffmpeg/bin/ffmpeg.exe', source=filename), after=after_playing)
             await ctx.send(f'Now playing: \n{title}')
@@ -66,6 +77,14 @@ class Arle(commands.Cog):
         except Exception as e:
             await ctx.send(f'Error playing audio file: {e}')
         self.current_filename = filename
+
+        try:
+            lyrics = self.get_lyrics(title.split('-')[0].strip(), title.split('-')[1].strip())
+            lyrics = lyrics.replace('Paroles de la chanson', '')
+            lyrics = lyrics.replace('par', 'by')
+            await ctx.send(f'Lyrics:\n{lyrics}')
+        except Exception as e:
+            await ctx.send(f'Cannot find lyrics for this song.')
 
     @commands.command(name='pause', help='Pauses the currently playing music')
     async def pause(self, ctx):
@@ -110,8 +129,8 @@ class Arle(commands.Cog):
 
             # Wait for the audio to stop playing
             while ctx.voice_client.is_playing():
-                await asyncio.sleep(3)  # Small delay to avoid CPU intensive loop
-            await asyncio.sleep(2)  # Additional delay to ensure the audio is completely stopped
+                await asyncio.sleep(2)  # Small delay to avoid CPU intensive loop
+            await asyncio.sleep(1)  # Additional delay to ensure the audio is completely stopped
             try:
                 if current_filename and os.path.exists(current_filename):
                     os.remove(current_filename)
