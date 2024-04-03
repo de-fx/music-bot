@@ -4,17 +4,17 @@ import discord
 from discord.ext import commands
 from discord import FFmpegPCMAudio
 from yt_dlp import YoutubeDL
-import requests
-
+import aiohttp
 
 class Arle(commands.Cog):
-
-
-    def __init__(self, bot):
+    def __init__(self, bot, *args, **kwargs):
+        super().__init__(*args, **kwargs)    
         self.bot = bot
         self.current_filename = None
+        self.last_search = None 
         
-    async def download_audio(self, search):
+    async def download_audio(self, search: str):
+        loop = asyncio.get_event_loop()
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': './Downloads/%(title)s.%(ext)s',
@@ -27,26 +27,35 @@ class Arle(commands.Cog):
             'quiet': True,
             'no_warnings': True,
         }
+        
         try:
             with YoutubeDL(ydl_opts) as ydl:
-                info_dict = ydl.extract_info(search, download=True)
+                info_dict = await loop.run_in_executor(None, lambda: ydl.extract_info(search, download=True))
                 filename = ydl.prepare_filename(info_dict['entries'][0]).replace('.webm', '.mp3')
                 title = info_dict['entries'][0]['title']
-                return filename, title, 
+                return filename, title
         except Exception as e:
             raise e
 
-
-    def get_lyrics(self, artist, title):
-        response = f'https://api.lyrics.ovh/v1/{artist}/{title}'
-        data = requests.get(response).json()
-        return data['lyrics']
-
+    async def get_lyrics(self, artist, title):
+        url = f'https://api.lyrics.ovh/v1/{artist}/{title}'
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        return "Cannot find lyrics"
+                    json_response = await response.json()
+                    if 'lyrics' not in json_response:
+                        return "Cannot find lyrics"
+                    return json_response['lyrics']
+            except aiohttp.ClientError as e:
+                print(f"Error getting lyrics: {e}")
+                return "Cannot find lyrics"
 
     @commands.command(name='play', help='Plays music from YouTube')
-    async def play(self, ctx, *, search: str):
-        #Store the search query for replay command
-        self.last_played_search_query = search
+    async def play(self, ctx, *, search):
+        self.last_search = search
+
         if ctx.author.voice is None:
             await ctx.send('You are not connected to a voice channel.')
             return
@@ -66,25 +75,34 @@ class Arle(commands.Cog):
             if error:
                 print(f'Error playing audio file: {error}')
                 return
-            os.remove(filename)
+            try:
+                os.remove(filename)
+            except PermissionError:
+                pass
+            print(f'Deleted audio file: {filename}')
         self.current_filename = None
         
         try:
             ctx.voice_client.play(FFmpegPCMAudio(executable='C:/ffmpeg/bin/ffmpeg.exe', source=filename), after=after_playing)
-            await ctx.send(f'Now playing: \n{title}')
-            # Print the filename for debugging
+            await ctx.send(f'Now playing:\n**{title}**')
             print(f'Filename of the currently playing track: {filename}')    
         except Exception as e:
             await ctx.send(f'Error playing audio file: {e}')
         self.current_filename = filename
 
         try:
-            lyrics = self.get_lyrics(title.split('-')[0].strip(), title.split('-')[1].strip())
-            lyrics = lyrics.replace('Paroles de la chanson', '')
-            lyrics = lyrics.replace('par', 'by')
-            await ctx.send(f'Lyrics:\n{lyrics}')
+            artist, song = title.split('-', 1)
+            lyrics = await asyncio.wait_for(self.get_lyrics(artist.strip(), song.strip()), timeout=10)
+            if lyrics is None:
+                await ctx.send('Cannot find lyrics for this song.')
+            else:
+                lyrics = lyrics.replace('Paroles de la chanson', '** **')  # Remove the lyrics source
+                lyrics = lyrics.replace('par', '|') 
+                await ctx.send(f'Lyrics -{lyrics}')
+        except asyncio.TimeoutError:
+                print(f'Timeout error getting lyrics for {title}')
         except Exception as e:
-            await ctx.send(f'Cannot find lyrics for this song.')
+            print(f'Error finding lyrics: {e}')
 
     @commands.command(name='pause', help='Pauses the currently playing music')
     async def pause(self, ctx):
@@ -93,7 +111,6 @@ class Arle(commands.Cog):
         else:
             await ctx.send('The bot is not connected to a voice channel.')
 
-
     @commands.command(name='resume', help='Resumes paused music')
     async def resume(self, ctx):
         if ctx.voice_client.is_paused():
@@ -101,40 +118,33 @@ class Arle(commands.Cog):
         else:
             await ctx.send("Audio is not paused.")
 
-
     @commands.command(name='replay', help='Replays the last played track')
     async def replay(self, ctx):
         if ctx.voice_client and ctx.voice_client.is_playing():
-            ctx.voice_client.stop()  # Stop the current track
-            if hasattr(self, 'last_played_search_query'):
-                try:
-                    filename, title = await self.download_audio(self.last_played_search_query)
-                    ctx.voice_client.play(FFmpegPCMAudio(executable='C:/ffmpeg/bin/ffmpeg.exe', source=filename))
-                    await ctx.send(f'Replaying :\n{title}')
-                except Exception as e:
-                    await ctx.send(f'Error replaying audio file: {e}')
-            else:
-                await ctx.send('No track has been played yet to replay.')
+            ctx.voice_client.stop()
+            try:
+                filename, title = await self.download_audio(self.last_search)
+                ctx.voice_client.play(FFmpegPCMAudio(executable='C:/ffmpeg/bin/ffmpeg.exe', source=filename))
+                await ctx.send(f'Replaying :\n**{title}**')
+            except Exception as e:
+                await ctx.send(f'Error replaying audio file: {e}')
         else:
-            await ctx.send('The bot is not playing any audio.')
-
-
+            await ctx.send('No track has been played yet to replay.')
+                
 
     @commands.command(name='stop', help='Stops playing music and deletes the audio file')
     async def stop(self, ctx):
         if ctx.voice_client is not None and ctx.voice_client.is_playing():
-            # Get the currently playing filename
             current_filename = self.current_filename
             ctx.voice_client.stop()
 
-            # Wait for the audio to stop playing
             while ctx.voice_client.is_playing():
-                await asyncio.sleep(2)  # Small delay to avoid CPU intensive loop
-            await asyncio.sleep(1)  # Additional delay to ensure the audio is completely stopped
+                await asyncio.sleep(1) 
+            await asyncio.sleep(1)
             try:
                 if current_filename and os.path.exists(current_filename):
                     os.remove(current_filename)
-                    self.current_filename = None  # Reset the filename after deletion
+                    self.current_filename = None
                 else:
                     await ctx.send('Error: Audio file not found or filename not set.')
             except Exception as e:
@@ -142,13 +152,11 @@ class Arle(commands.Cog):
         else:
             await ctx.send('The bot is not playing any audio or not connected to a voice channel.')
 
-
 # Create a bot instance
 intents = discord.Intents.default()
 intents.voice_states = True
 intents.message_content = True
 bot = commands.Bot(command_prefix='/', intents=intents)
-
 
 # Event listener for when the bot is ready
 @bot.event
@@ -158,5 +166,4 @@ async def on_ready():
 
 # Run the bot
 if __name__ == '__main__':
-    bot.run(os.getenv('Arle')) 
-
+    bot.run(os.getenv('Arle'))
