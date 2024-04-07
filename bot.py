@@ -93,10 +93,10 @@ class Arle(commands.Cog):
         try:
             artist, song = title.split('-', 1)
             lyrics = await asyncio.wait_for(self.get_lyrics(artist.strip(), song.strip()), timeout=10)
-            if lyrics is None:
+            if lyrics is None or lyrics == 'Cannot find lyrics':
                 await ctx.send('Cannot find lyrics for this song.')
             else:
-                lyrics = lyrics.replace('Paroles de la chanson', '** **')  # Remove the lyrics source
+                lyrics = lyrics.replace('Paroles de la chanson', '')  # Remove the lyrics source
                 lyrics = lyrics.replace('par', '|') 
                 await ctx.send(f'Lyrics -{lyrics}')
         except asyncio.TimeoutError:
@@ -131,6 +131,10 @@ class Arle(commands.Cog):
         else:
             await ctx.send('No track has been played yet to replay.')
                 
+
+    @commands.command(name='next', help='adds the song to queue')
+    async def next():
+        pass
 
     @commands.command(name='stop', help='Stops playing music and deletes the audio file')
     async def stop(self, ctx):
