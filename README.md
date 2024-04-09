@@ -7,6 +7,7 @@ Arle is a Discord bot that can play music from YouTube. It supports various comm
 - Play music from YouTube in a Discord voice channel.
 - Pause, resume, and stop the currently playing music.
 - Replay the last played track.
+- Add songs in queue.
 - Automatically cleans up downloaded audio files.
 
 ## Commands
@@ -16,6 +17,8 @@ Arle is a Discord bot that can play music from YouTube. It supports various comm
 - `/resume`: Resumes paused music.
 - `/replay`: Replays the last played track.
 - `/stop`: Stops playing music and deletes the audio file.
+- `/add [YouTube URL or search query]`: Adds a song to the queue.
+- `/lyrics [artist - song]`: Fetches the lyrics for a song.
 
 ## Setup
 
